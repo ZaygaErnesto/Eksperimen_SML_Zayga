@@ -1,0 +1,39 @@
+name: Preprocessing Workflow
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  preprocessing:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pandas scikit-learn numpy
+
+    - name: Run preprocessing script
+      run: |
+        python preprocessing/automate_Zayga.py
+
+    - name: Save processed dataset
+      run: |
+        mkdir -p output
+        # Contoh: Simpan hasil preprocessing ke output/processed_data.csv
+        # Anda perlu menambahkan kode di automate_Zayga.py untuk menyimpan hasilnya
+        # Misal, tambahkan di akhir script automate_Zayga.py:
+        # pd.DataFrame(X_train).to_csv('output/X_train.csv', index=False)
+        # pd.DataFrame(X_test).to_csv('output/X_test.csv', index=False)
+        # y_train.to_csv('output/y_train.csv', index=False)
+        # y_test.to_csv('output/y_test.csv', index=False)
