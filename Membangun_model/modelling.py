@@ -8,9 +8,9 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 
 # Load preprocessed data
-data_path = os.path.join(os.path.dirname(__file__), '..', 'preprocessing', 'processed_data.csv')
+data_path = os.path.join(os.path.dirname(__file__), '..', 'preprocessed_data.csv.csv')
 if not os.path.exists(data_path):
-    data_path = '../preprocessed_data.csv'
+    data_path = '..\preprocessed_data.csv'
 
 df = pd.read_csv(data_path)
 print(f"✓ Data loaded: {df.shape[0]} rows, {df.shape[1]} columns")
@@ -25,20 +25,15 @@ X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_
 # Set MLflow experiment
 mlflow.set_experiment("Basic_Model_Training")
 
-# Enable autologging
-mlflow.sklearn.autolog()
+# Aktifkan autolog sebelum run
+mlflow.sklearn.autolog(log_models=True, log_input_examples=False, log_model_signatures=True, registered_model_name=None)
 
-# Start MLflow run
 with mlflow.start_run(run_name="RandomForest_Basic_Autolog"):
-    # Train model
     print("Training model with autolog...")
     model = RandomForestClassifier(n_estimators=100, random_state=42)
     model.fit(X_train, y_train)
-    
-    # Predictions
     y_pred = model.predict(X_test)
     
-    # Calculate metrics (autolog will log these automatically)
     accuracy = accuracy_score(y_test, y_pred)
     precision = precision_score(y_test, y_pred, average='weighted')
     recall = recall_score(y_test, y_pred, average='weighted')
