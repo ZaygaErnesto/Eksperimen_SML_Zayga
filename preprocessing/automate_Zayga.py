@@ -43,9 +43,9 @@ def handle_outliers_iqr(df, columns, method='cap'):
     
     return df_clean, outlier_info
 
-def preprocess_data(df, target_column='Target', test_size=0.2, random_state=42):
+def preprocess_data(df, target_column='Target'):
     """
-    Melakukan preprocessing lengkap pada dataset
+    Melakukan preprocessing dasar pada dataset (tanpa split dan standarisasi)
     """
     print("="*50)
     print("MEMULAI PREPROCESSING DATA")
@@ -68,8 +68,19 @@ def preprocess_data(df, target_column='Target', test_size=0.2, random_state=42):
         df_processed = df_processed.drop_duplicates()
         print(f"   Data setelah menghapus duplikat: {len(df_processed)}")
     
+    # === FEATURE ENGINEERING ===
+    print("\n4. Feature Engineering:")
+    try:
+        df_processed['Power'] = df_processed['Torque [Nm]'] * df_processed['Rotational speed [rpm]']
+        df_processed['Temp_Diff'] = df_processed['Process temperature [K]'] - df_processed['Air temperature [K]']
+        df_processed['Wear_Strain'] = df_processed['Tool wear [min]'] * df_processed['Torque [Nm]']
+        print("   ✓ Fitur Power, Temp_Diff, Wear_Strain berhasil ditambahkan.")
+    except Exception as e:
+        print(f"   ✗ Error saat menambahkan fitur: {e}")
+    # ===========================
+    
     # Encoding categorical columns
-    print("\n4. Encoding data kategorikal:")
+    print("\n5. Encoding data kategorikal:")
     label_encoders = {}
     categorical_cols = df_processed.select_dtypes(include=['object']).columns.tolist()
     
@@ -91,10 +102,10 @@ def preprocess_data(df, target_column='Target', test_size=0.2, random_state=42):
     
     if columns_to_drop:
         df_processed = df_processed.drop(columns=columns_to_drop)
-        print(f"\n5. Kolom yang dihapus: {columns_to_drop}")
+        print(f"\n6. Kolom yang dihapus: {columns_to_drop}")
     
     # Handle outliers
-    print("\n6. Handling outlier (metode IQR):")
+    print("\n7. Handling outlier (metode IQR):")
     numeric_cols = df_processed.select_dtypes(include=[np.number]).columns.tolist()
     if target_column in numeric_cols:
         numeric_cols.remove(target_column)
@@ -104,57 +115,30 @@ def preprocess_data(df, target_column='Target', test_size=0.2, random_state=42):
     for col, count in outlier_counts.items():
         print(f"   - {col}: {count} outliers")
     
-    # Separate features and target
-    print(f"\n7. Memisahkan fitur dan target:")
-    X = df_processed.drop(target_column, axis=1)
-    y = df_processed[target_column]
-    print(f"   Shape fitur (X): {X.shape}")
-    print(f"   Shape target (y): {y.shape}")
-    print(f"   Distribusi kelas target:\n{y.value_counts()}")
-    
-    # Split data
-    print(f"\n8. Split data (train: {1-test_size:.0%}, test: {test_size:.0%}):")
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=test_size, random_state=random_state, stratify=y
-    )
-    print(f"   X_train: {X_train.shape}, y_train: {y_train.shape}")
-    print(f"   X_test: {X_test.shape}, y_test: {y_test.shape}")
-    
-    # Standardize features
-    print("\n9. Standarisasi fitur numerik:")
-    scaler = StandardScaler()
-    X_train_scaled = scaler.fit_transform(X_train)
-    X_test_scaled = scaler.transform(X_test)
-    print("   ✓ Standarisasi selesai")
-    
     print("\n" + "="*50)
     print("PREPROCESSING SELESAI")
     print("="*50)
+    print(f"Dataset final shape: {df_processed.shape}")
     
-    return X_train_scaled, X_test_scaled, y_train, y_test, scaler, label_encoders
+    return df_processed, label_encoders
 
-def save_processed_data(X_train, X_test, y_train, y_test, scaler, label_encoders, output_dir='../data/processed'):
+def save_preprocessed_data(df_processed, label_encoders, output_dir='../Eksperimen_SML_Zayga'):
     """
-    Menyimpan data yang sudah diproses
+    Menyimpan data yang sudah diproses (preprocessing saja)
     """
     os.makedirs(output_dir, exist_ok=True)
     
-    # Save processed data
-    np.save(f'{output_dir}/X_train.npy', X_train)
-    np.save(f'{output_dir}/X_test.npy', X_test)
-    np.save(f'{output_dir}/y_train.npy', y_train)
-    np.save(f'{output_dir}/y_test.npy', y_test)
+    # Save preprocessed dataframe
+    df_processed.to_csv(f'{output_dir}/preprocessed_data.csv', index=False)
     
-    # Save scaler and encoders
-    joblib.dump(scaler, f'{output_dir}/scaler.pkl')
+    # Save label encoders
     joblib.dump(label_encoders, f'{output_dir}/label_encoders.pkl')
     
     # Create summary file
     summary = {
-        'X_train_shape': X_train.shape,
-        'X_test_shape': X_test.shape,
-        'y_train_shape': y_train.shape,
-        'y_test_shape': y_test.shape,
+        'total_samples': len(df_processed),
+        'total_features': len(df_processed.columns),
+        'feature_names': list(df_processed.columns),
         'preprocessing_date': pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')
     }
     
@@ -163,9 +147,9 @@ def save_processed_data(X_train, X_test, y_train, y_test, scaler, label_encoders
     print(f"\n✓ Data tersimpan di: {output_dir}")
     print(f"Files: {os.listdir(output_dir)}")
 
-def run_preprocessing_pipeline(filepath, target_column='Target', test_size=0.2, random_state=42):
+def run_preprocessing_pipeline(filepath, target_column='Target'):
     """
-    Menjalankan pipeline preprocessing lengkap
+    Menjalankan pipeline preprocessing (tanpa split dan standarisasi)
     """
     # Load data
     df = load_data(filepath)
@@ -173,20 +157,18 @@ def run_preprocessing_pipeline(filepath, target_column='Target', test_size=0.2, 
     if df is None:
         return None
     
-    # Preprocessing
-    X_train, X_test, y_train, y_test, scaler, label_encoders = preprocess_data(
-        df, target_column, test_size, random_state
-    )
+    # Preprocessing only
+    df_processed, label_encoders = preprocess_data(df, target_column)
     
-    # Save processed data
-    save_processed_data(X_train, X_test, y_train, y_test, scaler, label_encoders)
+    # Save preprocessed data
+    save_preprocessed_data(df_processed, label_encoders)
     
-    return X_train, X_test, y_train, y_test, scaler, label_encoders
+    return df_processed, label_encoders
 
 if __name__ == "__main__":
     # Determine filepath based on environment
-    if os.path.exists('../data/raw/predictive_maintenance.raw'):
-        filepath = '../data/raw/predictive_maintenance.raw'
+    if os.path.exists('../predictive_maintenance.raw'):
+        filepath = '../predictive_maintenance.raw'
     elif os.path.exists('predictive_maintenance.raw'):
         filepath = 'predictive_maintenance.raw'
     else:
@@ -196,13 +178,14 @@ if __name__ == "__main__":
     # Run preprocessing pipeline
     result = run_preprocessing_pipeline(
         filepath=filepath,
-        target_column='Target',
-        test_size=0.2,
-        random_state=42
+        target_column='Target'
     )
     
     if result is not None:
-        print("\n✓ Preprocessing pipeline completed successfully!")
+        df_processed, label_encoders = result
+        print(f"\n✓ Preprocessing pipeline completed successfully!")
+        print(f"Final dataset shape: {df_processed.shape}")
+        print(f"Columns: {list(df_processed.columns)}")
     else:
         print("\n✗ Preprocessing pipeline failed!")
         exit(1)
